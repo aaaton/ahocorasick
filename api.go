@@ -6,8 +6,8 @@ package cedar
 //	size:			the size of the base array used by the cedar,
 //	capacity:		the capicity of the base array used by the cedar.
 func (da *Cedar) Status() (keys, nodes, size, capacity int) {
-	for i := 0; i < da.size; i++ {
-		n := da.array[i]
+	for i := 0; i < da.Size; i++ {
+		n := da.Array[i]
 		if n.Check >= 0 {
 			nodes++
 			if n.Value >= 0 {
@@ -15,7 +15,7 @@ func (da *Cedar) Status() (keys, nodes, size, capacity int) {
 			}
 		}
 	}
-	return keys, nodes, da.size, da.capacity
+	return keys, nodes, da.Size, da.Capacity
 }
 
 // Jump travels from a node `from` to another node `to` by following the path `path`.
@@ -30,11 +30,11 @@ func (da *Cedar) Status() (keys, nodes, size, capacity int) {
 //	Jump([]byte("cd"), 23) = 37, nil		// reach "abcd" from "ab"
 func (da *Cedar) Jump(path []byte, from int) (to int, err error) {
 	for _, b := range path {
-		if da.array[from].Value >= 0 {
+		if da.Array[from].Value >= 0 {
 			return from, ErrNoPath
 		}
-		to = da.array[from].base() ^ int(b)
-		if da.array[to].Check != from {
+		to = da.Array[from].base() ^ int(b)
+		if da.Array[to].Check != from {
 			return from, ErrNoPath
 		}
 		from = to
@@ -46,11 +46,11 @@ func (da *Cedar) Jump(path []byte, from int) (to int, err error) {
 // It will return ErrNoPath, if the node does not exist.
 func (da *Cedar) Key(id int) (key []byte, err error) {
 	for id > 0 {
-		from := da.array[id].Check
+		from := da.Array[id].Check
 		if from < 0 {
 			return nil, ErrNoPath
 		}
-		if char := byte(da.array[from].base() ^ id); char != 0 {
+		if char := byte(da.Array[from].base() ^ id); char != 0 {
 			key = append(key, char)
 		}
 		id = from
@@ -67,13 +67,13 @@ func (da *Cedar) Key(id int) (key []byte, err error) {
 // Value returns the value of the node with the given `id`.
 // It will return ErrNoValue, if the node does not have a value.
 func (da *Cedar) vKeyOf(id int) (value int, err error) {
-	value = da.array[id].Value
+	value = da.Array[id].Value
 	if value >= 0 {
 		return value, nil
 	}
-	to := da.array[id].base()
-	if da.array[to].Check == id && da.array[to].Value >= 0 {
-		return da.array[to].Value, nil
+	to := da.Array[id].base()
+	if da.Array[to].Check == id && da.Array[to].Value >= 0 {
+		return da.Array[to].Value, nil
 	}
 	return 0, ErrNoValue
 }
@@ -85,9 +85,9 @@ func (da *Cedar) Insert(key []byte, value interface{}) error {
 	klen := len(key)
 	p := da.get(key, 0, 0)
 	//fmt.Printf("k:%s, v:%d\n", string(key), value)
-	da.array[p].Value = k
-	da.infos[p].End = true
-	da.vals[k] = nvalue{len: klen, Value: value}
+	da.Array[p].Value = k
+	da.Infos[p].End = true
+	da.Vals[k] = nvalue{len: klen, Value: value}
 	return nil
 }
 
@@ -96,7 +96,7 @@ func (da *Cedar) Insert(key []byte, value interface{}) error {
 // It will return ErrInvalidValue, if the updated value < 0 or >= valueLimit.
 func (da *Cedar) Update(key []byte, value int) error {
 	id := da.get(key, 0, 0)
-	p := &da.array[id].Value
+	p := &da.Array[id].Value
 	if *p+value < 0 || *p+value >= valueLimit {
 		return ErrInvalidValue
 	}
@@ -113,20 +113,20 @@ func (da *Cedar) Delete(key []byte) error {
 		return ErrNoPath
 	}
 
-	if da.array[to].Value < 0 {
-		base := da.array[to].base()
-		if da.array[base].Check == to {
+	if da.Array[to].Value < 0 {
+		base := da.Array[to].base()
+		if da.Array[base].Check == to {
 			to = base
 		}
 	}
 
 	for {
-		from := da.array[to].Check
-		base := da.array[from].base()
+		from := da.Array[to].Check
+		base := da.Array[from].base()
 		label := byte(to ^ base)
 
 		// if `to` has sibling, remove `to` from the sibling list, then stop
-		if da.infos[to].Sibling != 0 || da.infos[from].Child != label {
+		if da.Infos[to].Sibling != 0 || da.Infos[from].Child != label {
 			// delete the label from the child ring first
 			da.popSibling(from, base, label)
 			// then release the current node `to` to the empty node ring
@@ -155,7 +155,7 @@ func (da *Cedar) Get(key []byte) (value interface{}, err error) {
 	if err != nil {
 		return nil, ErrNoValue
 	}
-	if v, ok := da.vals[vk]; ok {
+	if v, ok := da.Vals[vk]; ok {
 		return v.Value, nil
 	}
 	return nil, ErrNoValue
@@ -216,26 +216,26 @@ func (da *Cedar) PrefixPredict(key []byte, num int) (ids []int) {
 }
 
 func (da *Cedar) begin(from int) (to int, err error) {
-	for c := da.infos[from].Child; c != 0; {
-		to = da.array[from].base() ^ int(c)
-		c = da.infos[to].Child
+	for c := da.Infos[from].Child; c != 0; {
+		to = da.Array[from].base() ^ int(c)
+		c = da.Infos[to].Child
 		from = to
 	}
-	if da.array[from].base() > 0 {
-		return da.array[from].base(), nil
+	if da.Array[from].base() > 0 {
+		return da.Array[from].base(), nil
 	}
 	return from, nil
 }
 
 func (da *Cedar) next(from int, root int) (to int, err error) {
-	c := da.infos[from].Sibling
-	for c == 0 && from != root && da.array[from].Check >= 0 {
-		from = da.array[from].Check
-		c = da.infos[from].Sibling
+	c := da.Infos[from].Sibling
+	for c == 0 && from != root && da.Array[from].Check >= 0 {
+		from = da.Array[from].Check
+		c = da.Infos[from].Sibling
 	}
 	if from == root {
 		return 0, ErrNoPath
 	}
-	from = da.array[da.array[from].Check].base() ^ int(c)
+	from = da.Array[da.Array[from].Check].base() ^ int(c)
 	return da.begin(from)
 }

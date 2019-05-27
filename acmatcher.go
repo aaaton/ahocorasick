@@ -103,7 +103,7 @@ func (m *Matcher) Cedar() *Cedar {
 
 // Compile trie to aho-corasick
 func (m *Matcher) Compile() {
-	nLen := len(m.da.array)
+	nLen := len(m.da.Array)
 	if m.compiled {
 		panic(ErrAlreadyCompiled)
 	}
@@ -160,7 +160,7 @@ func (m *Matcher) TokenOf(seq []byte, t MatchToken) []byte {
 
 func (m *Matcher) matchOf(seq []byte, offset, id int) {
 	for e := &m.output[id]; e != nil; e = e.Link {
-		nval := m.da.vals[e.vKey]
+		nval := m.da.Vals[e.vKey]
 		if nval.len == 0 {
 			continue
 		}
@@ -217,7 +217,7 @@ func (m *Matcher) buildFails() {
 }
 
 func (m *Matcher) dumpDFAFail(out *bytes.Buffer) {
-	nLen := len(m.da.array)
+	nLen := len(m.da.Array)
 	for i := 0; i < nLen; i++ {
 		fs := m.fails[i]
 		if fs != -1 {
